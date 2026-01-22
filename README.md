@@ -29,7 +29,7 @@
 ## 快速部署
 
 1. **准备运行环境**
-   - Python ≥ 3.13 或 Docker 24+
+   - Python ≥ 3.13
    - Git、Make（可选）、能够访问 `grok.com` 的网络环境
 2. **克隆代码并安装依赖**
    ```bash
@@ -49,23 +49,16 @@
    export WORKERS=1           # 多 worker 时建议改用 MySQL / Redis
    uvicorn main:app --host 0.0.0.0 --port 8001
    ```
-5. 访问 `http://服务器IP:8001/login`，完成后台配置与 token 导入。
+5. **管理后台初始化**
+   - 访问 `http://服务器IP:8001/login`
+   - 登录后在“系统设置”里补齐 `api_key` / `x_statsig_id` / 代理配置
+   - 在“Token 池”批量导入 SSO Token 并测试
 
-## Docker Compose 部署
+## 部署建议
 
-项目自带 `docker-compose.yml`，默认挂载 `grok_data`（持久化 `data/*`）及 `./logs`。常见自定义方式：
-
-```yaml
-environment:
-  - STORAGE_MODE=mysql
-  - DATABASE_URL=mysql://user:pass@db:3306/grok2api
-  - WORKERS=4
-volumes:
-  - ./data:/app/data      # 确保包含 setting.toml / proxy_state.json / call_logs.json
-  - ./logs:/app/logs
-```
-
-> **建议**：生产环境使用外部 MySQL/Redis 存储，确保多副本或多进程之间共享 token、配置、代理绑定与调用日志。Docker 部署完成后，可用 `docker compose logs -f grok2api` 观察启动过程是否完成 “调用日志服务启动完成 / 应用启动成功”。
+- **持久化数据**：`data/` 目录需长期保存（`setting.toml` / `token.json` / `proxy_state.json` / `call_logs.json`）。  
+- **多进程/多实例**：建议使用 MySQL 或 Redis 存储，避免 file 模式下数据不一致。  
+- **日志排查**：服务启动后观察日志中 “应用启动成功 / 调用日志服务启动完成”。  
 
 ## 配置说明（`data/setting.toml`）
 

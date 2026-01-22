@@ -64,29 +64,18 @@ curl https://你的服务器地址/v1/chat/completions \
 
 ## 如何部署
 
-### docker-compose
-
-```yaml
-services:
-  grok2api:
-    image: ghcr.io/chenyme/grok2api:latest
-    ports:
-      - "8000:8000"
-    volumes:
-      - grok_data:/app/data
-      - ./logs:/app/logs
-    environment:
-      # =====存储模式: file, mysql 或 redis=====
-      - STORAGE_MODE=file
-      # =====数据库连接 URL (仅在STORAGE_MODE=mysql或redis时需要)=====
-      # - DATABASE_URL=mysql://user:password@host:3306/grok2api
-
-      ## MySQL格式: mysql://user:password@host:port/database
-      ## Redis格式: redis://host:port/db 或 redis://user:password@host:port/db (SSL: rediss://)
-
-volumes:
-  grok_data:
-```
+1. **准备运行环境**：Python ≥ 3.13
+2. **初始化配置**：
+   - `cp data/setting.example.toml data/setting.toml`
+   - 编辑 `data/setting.toml`，至少设置 `admin_password / api_key / x_statsig_id`
+3. **启动服务**：
+   - `export STORAGE_MODE=file`
+   - `export WORKERS=1`
+   - `uvicorn main:app --host 0.0.0.0 --port 8001`
+4. **后台初始化**：
+   - 访问 `http://服务器IP:8001/login`
+   - 在“系统设置”里配置代理/全局项
+   - 在“Token 池”导入 SSO 并测试
 
 ### 环境变量说明
 
