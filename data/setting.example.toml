@@ -23,3 +23,6 @@ admin_password = "admin"
 admin_username = "admin"
 image_cache_max_size_mb = 512
 video_cache_max_size_mb = 1024
+token_refresh_interval = 3600
+token_refresh_scope = "expired"
+token_zero_expire_threshold = 3

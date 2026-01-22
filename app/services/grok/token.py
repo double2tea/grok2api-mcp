@@ -49,6 +49,7 @@ class GrokTokenManager:
         # 批量保存队列
         self._save_pending = False  # 标记是否有待保存的数据
         self._save_task = None  # 后台保存任务
+        self._refresh_task = None  # Token状态刷新任务
         self._shutdown = False  # 关闭标志
         
         self._initialized = True
@@ -138,11 +139,38 @@ class GrokTokenManager:
                 except Exception as e:
                     logger.error(f"[Token] 存储失败: {e}")
 
+    async def _refresh_status_worker(self) -> None:
+        """定时刷新Token状态"""
+        from app.core.config import setting
+
+        logger.info("[Token] 状态刷新任务已启动")
+        while not self._shutdown:
+            interval = setting.global_config.get("token_refresh_interval", 3600)
+            scope = setting.global_config.get("token_refresh_scope", "expired")
+            threshold = setting.global_config.get("token_zero_expire_threshold", 3)
+
+            if not interval or interval <= 0:
+                await asyncio.sleep(60)
+                continue
+
+            try:
+                await self.refresh_token_status(scope=scope, zero_threshold=threshold)
+            except Exception as e:
+                logger.error(f"[Token] 状态刷新失败: {e}")
+
+            await asyncio.sleep(interval)
+
     async def start_batch_save(self) -> None:
         """启动批量保存任务"""
         if self._save_task is None:
             self._save_task = asyncio.create_task(self._batch_save_worker())
             logger.info("[Token] 存储任务已创建")
+
+    async def start_status_refresh(self) -> None:
+        """启动状态刷新任务"""
+        if self._refresh_task is None:
+            self._refresh_task = asyncio.create_task(self._refresh_status_worker())
+            logger.info("[Token] 状态刷新任务已创建")
 
     async def shutdown(self) -> None:
         """关闭并刷新所有待保存数据"""
@@ -152,6 +180,13 @@ class GrokTokenManager:
             self._save_task.cancel()
             try:
                 await self._save_task
+            except asyncio.CancelledError:
+                pass
+
+        if self._refresh_task:
+            self._refresh_task.cancel()
+            try:
+                await self._refresh_task
             except asyncio.CancelledError:
                 pass
         
@@ -193,6 +228,7 @@ class GrokTokenManager:
                 "videoLimit": -1,
                 "status": "active",
                 "failedCount": 0,
+                "zeroCount": 0,
                 "lastFailureTime": None,
                 "lastFailureReason": None,
                 "tags": [],
@@ -437,6 +473,77 @@ class GrokTokenManager:
         except Exception as e:
             logger.error(f"[Token] 检查限制错误: {e}")
             return None
+
+    @staticmethod
+    def _calc_relevant_remaining(token_type: TokenType, normal: int, heavy: int) -> int:
+        """计算用于状态判断的剩余次数"""
+        if token_type == TokenType.SUPER:
+            if normal == -1 and heavy == -1:
+                return -1
+            if normal == -1:
+                return heavy
+            if heavy == -1:
+                return normal
+            return max(normal, heavy)
+        return normal
+
+    async def refresh_token_status(self, scope: str = "expired", zero_threshold: int = 3) -> None:
+        """刷新Token状态并处理连续0次数失效"""
+        if not self.token_data:
+            return
+
+        scope = "all" if scope == "all" else "expired"
+        threshold = max(1, int(zero_threshold or 3))
+
+        total = 0
+        checked = 0
+        for token_type in [TokenType.NORMAL, TokenType.SUPER]:
+            token_map = self.token_data.get(token_type.value, {})
+            total += len(token_map)
+            for sso, data in list(token_map.items()):
+                if scope == "expired" and data.get("status") != "expired":
+                    continue
+
+                auth_token = f"sso-rw={sso};sso={sso}"
+                try:
+                    await self.check_limits(auth_token, "grok-4-fast")
+                    if token_type == TokenType.SUPER:
+                        await self.check_limits(auth_token, "grok-4-heavy")
+                except Exception as e:
+                    logger.warning(f"[Token] 刷新失败: {sso[:10]}..., {e}")
+                    continue
+
+                data = self.token_data.get(token_type.value, {}).get(sso)
+                if not data:
+                    continue
+
+                data.setdefault("zeroCount", 0)
+                normal = data.get("remainingQueries", -1)
+                heavy = data.get("heavyremainingQueries", -1)
+                relevant = self._calc_relevant_remaining(token_type, normal, heavy)
+
+                if relevant == 0:
+                    data["zeroCount"] += 1
+                    if data["zeroCount"] >= threshold:
+                        data["status"] = "expired"
+                        logger.info(f"[Token] 连续0次数失效: {sso[:10]}... ({data['zeroCount']}/{threshold})")
+                else:
+                    if data.get("zeroCount", 0) != 0:
+                        data["zeroCount"] = 0
+                    if data.get("status") == "expired":
+                        data["status"] = "active"
+                    if data.get("failedCount", 0) != 0:
+                        data["failedCount"] = 0
+                        data["lastFailureTime"] = None
+                        data["lastFailureReason"] = None
+
+                checked += 1
+                if checked % 10 == 0:
+                    await asyncio.sleep(0.1)
+
+        if checked:
+            self._mark_dirty()
+        logger.info(f"[Token] 状态刷新完成: {checked}/{total} (scope={scope})")
 
     async def update_limits(self, sso: str, normal: Optional[int] = None, heavy: Optional[int] = None, video: Optional[int] = None) -> None:
         """更新限制"""

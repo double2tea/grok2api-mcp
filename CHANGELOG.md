@@ -9,6 +9,7 @@
 - **多代理池 / SSO 绑定**：`app/core/proxy_pool.py` 支持同时维护静态代理、代理池 API 与 `proxy_urls` 列表，附带 SSO 绑定、失败熔断与 `proxy_state.json` 持久化。
 - **代理管理面板**：后台新增 `/api/proxies`、`/api/proxies/assign`、`/api/proxies/test` 等端点，可视化操作代理、执行健康检测。
 - **配置示例**：提供 `data/setting.example.toml`，便于在容器化/流水线场景下模板化配置。
+- **Token 状态刷新**：新增定时刷新任务，支持连续 0 次数阈值失效与「仅失效/全部」范围配置。
 
 ### Changed
 - **启动流程**：`main.py` 先初始化存储，再加载配置、代理、调用日志，并在退出阶段倒序关闭，保证文件模式与多进程一致性。

@@ -76,6 +76,9 @@ async def lifespan(app: FastAPI):
     
     # 4. 启动批量保存任务
     await token_manager.start_batch_save()
+
+    # 4.1. 启动Token状态刷新任务
+    await token_manager.start_status_refresh()
     
     # 4.5. 启动调用日志服务
     log_max_count = setting.global_config.get("log_max_count", 10000)

@@ -40,6 +40,9 @@ DEFAULT_GLOBAL = {
     "batch_save_interval": 1.0,  # 批量保存间隔（秒）
     "batch_save_threshold": 10,  # 触发批量保存的变更数阈值
     "log_max_count": 10000,  # 调用日志最大数量
+    "token_refresh_interval": 3600,  # Token状态刷新间隔（秒）
+    "token_refresh_scope": "expired",  # expired/all
+    "token_zero_expire_threshold": 3,  # 连续0次数失效阈值
 }
 
 
