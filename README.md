@@ -78,6 +78,7 @@ volumes:
 - `[global]` 节：
   - `admin_username` / `admin_password`：后台账号；
   - `base_url`：用于生成图片/视频回调的公网地址；
+  - `token_refresh_interval` / `token_refresh_scope` / `token_zero_expire_threshold`：Token 状态定时刷新与连续 0 次失效规则；
   - `log_max_count`：调用日志最大条目（默认 1w，超限自动裁剪）；
   - `image_cache_max_size_mb` / `video_cache_max_size_mb`：缓存上限。
 
