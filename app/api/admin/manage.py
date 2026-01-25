@@ -211,6 +211,19 @@ def _format_size(size_bytes: int) -> str:
     return f"{size_mb:.1f} MB"
 
 
+def _calc_relevant_remaining(token_type: TokenType, normal: int, heavy: int) -> int:
+    """计算用于统计/状态判断的剩余次数"""
+    if token_type == TokenType.SUPER:
+        if normal == -1 and heavy == -1:
+            return -1
+        if normal == -1:
+            return heavy
+        if heavy == -1:
+            return normal
+        return max(normal, heavy)
+    return normal
+
+
 # === 页面路由 ===
 
 @router.get("/login", response_class=HTMLResponse)
@@ -571,6 +584,43 @@ async def get_stats(_: bool = Depends(verify_admin_session)) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"[Admin] 获取统计信息异常: {e}")
         raise HTTPException(status_code=500, detail={"error": f"获取失败: {e}", "code": "STATS_ERROR"})
+
+
+@router.get("/api/stats/remaining")
+async def get_remaining_stats(_: bool = Depends(verify_admin_session)) -> Dict[str, Any]:
+    """获取全量剩余次数统计（不受分页影响）"""
+    try:
+        all_tokens = token_manager.get_tokens()
+        assumed = int(setting.global_config.get("assumed_chat_quota_per_token", 80) or 0)
+        assumed = max(0, assumed)
+
+        total_chat = 0
+
+        for token_type in [TokenType.NORMAL, TokenType.SUPER]:
+            token_map = all_tokens.get(token_type.value, {}) or {}
+            for _, data in token_map.items():
+                normal = int(data.get("remainingQueries", -1))
+                heavy = int(data.get("heavyremainingQueries", -1))
+                relevant = _calc_relevant_remaining(token_type, normal, heavy)
+
+                if relevant == -1 and data.get("status") != "expired":
+                    relevant = assumed
+
+                if relevant > 0:
+                    total_chat += relevant
+
+        return {
+            "success": True,
+            "data": {
+                "chat_total_remaining": total_chat,
+                "image_total_remaining": total_chat // 2,
+                "assumed_chat_quota_per_token": assumed,
+                "video": token_manager.get_video_stats(),
+            },
+        }
+    except Exception as e:
+        logger.error(f"[Admin] 获取剩余统计异常: {e}")
+        raise HTTPException(status_code=500, detail={"error": f"获取失败: {e}", "code": "REMAINING_STATS_ERROR"})
 
 
 @router.get("/api/storage/mode")
