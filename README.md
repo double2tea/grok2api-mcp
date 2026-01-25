@@ -8,11 +8,11 @@
 - **健康切换**：连续失败 3 次标记不健康并解绑所有 SSO；成功会恢复健康并清零失败计数。
 - **代理来源**：支持静态代理 `proxy_url`、多代理 `proxy_urls`、代理池 `proxy_pool_url`，统一进入代理池管理。
 
-详细说明见 `DOCS/PROXY_POLICY.md`。
+详细说明见 [DOCS/PROXY_POLICY.md](DOCS/PROXY_POLICY.md)。
 
 ## 更新日志
 
-请查看 `CHANGELOG.md` 了解每次版本的新增与修复。
+请查看 [CHANGELOG.md](CHANGELOG.md) 了解每次版本的新增与修复。
 
 ## 与grok2api版的差异
 
@@ -106,5 +106,5 @@
 3. **多进程运行异常**：确保 `STORAGE_MODE` 使用 MySQL/Redis，并挂载 `data/` 目录让 proxy/log 状态同步；避免多个实例同时使用本地 file 存储。
 4. **图片/视频 403**：确认 `global.base_url` 指向能被终端访问的域名/IP，且外网能访问 `http://base_url/images/*`。
 
-更多实现细节可参考 `DOCS/PRO_FEATURES.md` 与 `CHANGELOG.md`。
+更多实现细节可参考 [DOCS/PRO_FEATURES.md](DOCS/PRO_FEATURES.md) 与 [CHANGELOG.md](CHANGELOG.md)。
 

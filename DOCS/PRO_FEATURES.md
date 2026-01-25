@@ -64,4 +64,4 @@
    - 若挂载了 docker 卷，确认 `proxy_state.json`、`call_logs.json` 在宿主机可见。
 5. **灰度**：可先以 `WORKERS=1` 运行，确认日志与代理绑定正常后再扩容。
 
-如需进一步定制或自动化部署，可结合 `CHANGELOG.md` 了解每个版本新增/调整内容。
+如需进一步定制或自动化部署，可结合 [CHANGELOG.md](../CHANGELOG.md) 了解每个版本新增/调整内容。
