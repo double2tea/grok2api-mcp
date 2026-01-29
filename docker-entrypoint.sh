@@ -70,10 +70,8 @@ PYTHON_SCRIPT
   fi
 fi
 
-# Initialize setting.toml from environment variables
-if [ ! -f "/app/data/setting.toml" ]; then
-  echo "[Entrypoint] Initializing setting.toml from environment variables..."
-  python3 << 'PYTHON_SCRIPT'
+# Initialize/patch setting.toml from environment variables
+python3 << 'PYTHON_SCRIPT'
 import os
 import toml
 from pathlib import Path
@@ -83,17 +81,19 @@ example_path = Path("data/setting.example.toml")
 config_path = Path("/app/data/setting.toml")
 config_path.parent.mkdir(parents=True, exist_ok=True)
 
-# Load default/example config
-if example_path.exists():
-    with open(example_path, "r", encoding="utf-8") as f:
-        config = toml.load(f)
-else:
-    # Fallback default structure
-    config = {
+# Default fallback x_statsig_id from README (works for public endpoints)
+DEFAULT_X_STATSIG = "ZTpUeXBlRXJyb3I6IENhbm5vdCByZWFkIHByb3BlcnRpZXMgb2YgdW5kZWZpbmVkIChyZWFkaW5nICdjaGlsZE5vZGVzJyk="
+
+def load_base_config():
+    if example_path.exists():
+        with open(example_path, "r", encoding="utf-8") as f:
+            return toml.load(f)
+    return {
         "grok": {
             "api_key": "",
             "x_statsig_id": "",
-            "retry_status_codes": [401, 429]
+            "retry_status_codes": [401, 429],
+            "dynamic_statsig": True,
         },
         "global": {
             "base_url": "http://localhost:8001",
@@ -101,28 +101,39 @@ else:
         }
     }
 
+# If file exists, load and patch; otherwise start from base config
+if config_path.exists():
+    with open(config_path, "r", encoding="utf-8") as f:
+        config = toml.load(f)
+else:
+    config = load_base_config()
+
 # Inject environment variables
-# [grok] section
+grok_cfg = config.setdefault("grok", {})
 if api_key := os.getenv("API_KEY"):
-    config.setdefault("grok", {})["api_key"] = api_key
-    
+    grok_cfg["api_key"] = api_key
 if x_statsig_id := os.getenv("X_STATSIG_ID"):
-    config.setdefault("grok", {})["x_statsig_id"] = x_statsig_id
+    grok_cfg["x_statsig_id"] = x_statsig_id
 
-# [global] section
+# Backfill x_statsig_id if still empty
+if not grok_cfg.get("x_statsig_id"):
+    grok_cfg["x_statsig_id"] = DEFAULT_X_STATSIG
+
+# Ensure dynamic_statsig default present
+grok_cfg.setdefault("dynamic_statsig", True)
+
+global_cfg = config.setdefault("global", {})
 if admin_password := os.getenv("ADMIN_PASSWORD") or os.getenv("PASSWORD"):
-    config.setdefault("global", {})["admin_password"] = admin_password
-
+    global_cfg["admin_password"] = admin_password
 if base_url := os.getenv("BASE_URL"):
-    config.setdefault("global", {})["base_url"] = base_url
+    global_cfg["base_url"] = base_url
 
 # Save config
 with open(config_path, "w", encoding="utf-8") as f:
     toml.dump(config, f)
 
-print(f"[Entrypoint] Config generated at {config_path}")
+print(f"[Entrypoint] Config ensured at {config_path}")
 PYTHON_SCRIPT
-fi
 
 # Start MCP proxy server (optional)
 if [ "${MCP_ENABLED:-1}" = "1" ]; then
