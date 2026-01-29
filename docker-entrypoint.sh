@@ -137,7 +137,13 @@ PYTHON_SCRIPT
 
 # Start MCP proxy server (optional)
 if [ "${MCP_ENABLED:-1}" = "1" ]; then
-  python -m uvicorn mcp_proxy:app --host 0.0.0.0 --port 8001 &
+  # 检查 uvicorn 是否存在
+  if command -v uvicorn >/dev/null 2>&1; then
+    echo "[Entrypoint] Starting MCP proxy server..."
+    python3 -m uvicorn mcp_proxy:app --host 0.0.0.0 --port 8001 &
+  else
+    echo "[Entrypoint] uvicorn not found, skipping MCP proxy server"
+  fi
 fi
 
 exec "$@"
