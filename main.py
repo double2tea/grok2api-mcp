@@ -165,9 +165,9 @@ async def health_check():
         "version": "1.0.3"
     }
 
-# 挂载MCP服务 - 回到mount方式
-app.mount("/mcp", mcp_app)
-logger.info("[MCP] MCP服务已挂载到 /mcp")
+# 挂载MCP服务到/api路径，避免与FastMCP内部/mcp路由冲突
+app.mount("/api", mcp_app)
+logger.info("[MCP] MCP服务已挂载，端点: /api/mcp")
 
 
 if __name__ == "__main__":
